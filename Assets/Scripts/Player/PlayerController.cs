@@ -1,5 +1,3 @@
-using System.Collections;
-using System.Collections.Generic;
 using UnityEngine;
 
 /// <summary>
@@ -11,8 +9,60 @@ public class PlayerController : MonoBehaviour
     private Rigidbody2D playerRigidbody;
     private PlayerMoveStatus playerMoveStatus;
 
-    public float speed = 30f;
-    public float jumpForce = 1000f;
+    public Transform leftDownPoint;
+    public Transform leftUpPoint;
+    public Transform rightDownPoint;
+    public Transform rightUpPoint;
+    public Transform leftPoint;
+    public Transform rightPoint;
+    public Transform upPoint;
+    public Transform downPoint;
+    public float checkRadius = 0.05f;
+
+    public LayerMask groundLayer;
+    public LayerMask leftWallLayer;
+    public LayerMask rightWallLayer;
+
+    public float speed = 10f;
+    public float jumpForce = 15f;
+    public float wallForce = 15f;
+
+    public float maxJumpTime = 0.2f;
+    public float maxFlyTime = 0.2f;
+
+    public float defaultGravityScale = 5f;
+    public float wallGravityScale = 1f;
+
+    public float graceTime = 0.1f;
+    private float graceTimer;
+    public float jumpBufferTime = 0.1f;
+    private float jumpBufferTimer;
+
+    private float leftInput0;
+    private float leftInput1;
+    private float leftInput;
+    private float rightInput0;
+    private float rightInput1;
+    private float rightInput;
+    private float jumpTime;
+    private float flyTime;
+
+    [SerializeField]
+    private bool leftPressed = false;
+    [SerializeField]
+    private bool rightPressed = false;
+    //[SerializeField]
+    //private bool jumpPressedDown = false;
+    [SerializeField]
+    private bool jumpPressedUp = false;
+    [SerializeField]
+    private bool jumpPressed = false;
+    [SerializeField]
+    private bool isJumping = false;
+    [SerializeField]
+    private bool isFlying = false;
+    [SerializeField]
+    private bool towardsRight = true;
 
     private void Start()
     {
@@ -21,139 +71,274 @@ public class PlayerController : MonoBehaviour
         playerMoveStatus = PlayerMoveStatus.Instance;
     }
 
-    private float rightMove0;
-    private float rightMove1;
-    private bool rightMove;
-    private float leftMove0;
-    private float leftMove1;
-    private bool leftMove;
-
     private void FixedUpdate()
     {
-        if (playerMoveStatus.rightable0)
+        CheckPos();
+        CheckFlying();
+        Jump();
+        Move();
+    }
+
+    private void CheckPos()
+    {
+        playerAnim.SetBool("isOnGround",
+                    Physics2D.OverlapCircle(leftDownPoint.position, checkRadius, groundLayer) ||
+                    Physics2D.OverlapCircle(downPoint.position, checkRadius, groundLayer) ||
+                    Physics2D.OverlapCircle(rightDownPoint.position, checkRadius, groundLayer));
+        playerAnim.SetBool("isOnLeftWall",
+            Physics2D.OverlapCircle(rightDownPoint.position, checkRadius, leftWallLayer) ||
+            Physics2D.OverlapCircle(rightPoint.position, checkRadius, leftWallLayer) ||
+            Physics2D.OverlapCircle(rightUpPoint.position, checkRadius, leftWallLayer));
+        playerAnim.SetBool("isOnRightWall",
+            Physics2D.OverlapCircle(leftDownPoint.position, checkRadius, rightWallLayer) ||
+            Physics2D.OverlapCircle(leftPoint.position, checkRadius, rightWallLayer) ||
+            Physics2D.OverlapCircle(leftUpPoint.position, checkRadius, rightWallLayer));
+        if (playerAnim.GetBool("isOnGround") || playerAnim.GetBool("isOnLeftWall") ||
+            playerAnim.GetBool("isOnRightWall"))
         {
-            rightMove0 = Input.GetAxis("Right0");
-            if (rightMove0 != 0) playerMoveStatus.rightPressed0 = true;
-            else playerMoveStatus.rightPressed0 = false;
+            playerAnim.SetBool("isRightJumping", false);
+            playerAnim.SetBool("isLeftJumping", false);
+            isFlying = isJumping = false;
         }
-        if (playerMoveStatus.rightable1)
+    }
+
+    private void CheckFlying()
+    {
+        if (isFlying)
         {
-            rightMove1 = Input.GetAxis("Right1");
-            if (rightMove1 != 0) playerMoveStatus.rightPressed1 = true;
-            else playerMoveStatus.rightPressed1 = false;
+            flyTime += Time.fixedDeltaTime;
+            if (flyTime > maxFlyTime) isFlying = false;
+            else if (playerAnim.GetBool("isLeftJumping"))
+            {
+                playerRigidbody.velocity = new Vector2(-wallForce, jumpForce);
+            }
+            else
+            {
+                playerRigidbody.velocity = new Vector2(wallForce, jumpForce);
+            }
         }
+    }
+
+    private void Jump()
+    {
+        if (playerAnim.GetBool("isOnGround")) graceTimer = graceTime;
+        else if (playerRigidbody.velocity.y > 0.01f) graceTimer = 0;
+        else graceTimer -= Time.fixedDeltaTime;
+        if (jumpBufferTimer > 0)
+        {
+            if (playerAnim.GetBool("isOnLeftWall"))
+            {
+                playerAnim.SetBool("isLeftJumping", true);
+                playerRigidbody.velocity = new Vector2(-wallForce, jumpForce);
+                isFlying = true;
+                flyTime = 0f;
+                jumpBufferTimer = 0;
+            }
+            else if (playerAnim.GetBool("isOnRightWall"))
+            {
+                playerAnim.SetBool("isRightJumping", true);
+                playerRigidbody.velocity = new Vector2(wallForce, jumpForce);
+                isFlying = true;
+                flyTime = 0f;
+                jumpBufferTimer = 0;
+            }
+            else if (graceTimer > 0)
+            {
+                if (towardsRight)
+                {
+                    playerAnim.SetBool("isRightJumping", true);
+                }
+                else
+                {
+                    playerAnim.SetBool("isLeftJumping", true);
+                }
+                playerRigidbody.velocity = Vector2.up * jumpForce;
+                isJumping = true;
+                jumpTime = 0f;
+                jumpBufferTimer = 0;
+            }
+            else jumpBufferTimer -= Time.fixedDeltaTime;
+        }
+        if (jumpPressed)
+        {
+            if (isJumping)
+            {
+                jumpTime += Time.fixedDeltaTime;
+                if (jumpTime > maxJumpTime)
+                {
+                    isJumping = false;
+                }
+                else playerRigidbody.velocity = Vector2.up * jumpForce;
+            }
+            jumpPressed = false;
+        }
+        if (jumpPressedUp)
+        {
+            isJumping = false;
+            jumpPressedUp = false;
+        }
+    }
+
+    private void Move()
+    {
+        if (leftPressed || rightPressed)
+        {
+            if (!isFlying)
+            {
+                if (!playerAnim.GetBool("isOnRightWall") && leftPressed)
+                {
+                    playerRigidbody.velocity = new Vector2
+                        (-leftInput * speed, playerRigidbody.velocity.y);
+                }
+                if (!playerAnim.GetBool("isOnLeftWall") && rightPressed)
+                {
+                    playerRigidbody.velocity = new Vector2
+                        (rightInput * speed, playerRigidbody.velocity.y);
+                }
+                if ((playerAnim.GetBool("isOnRightWall") && leftPressed) ||
+                    (playerAnim.GetBool("isOnLeftWall") && rightPressed))
+                {
+                    playerRigidbody.gravityScale = wallGravityScale;
+                }
+                else
+                {
+                    playerRigidbody.gravityScale = defaultGravityScale;
+                }
+                if (playerAnim.GetBool("isOnGround"))
+                {
+                    playerAnim.SetBool("isWalking", true);
+                }
+                else
+                {
+                    playerAnim.SetBool("isWalking", false);
+                }
+            }
+            leftPressed = rightPressed = false;
+        }
+        else
+        {
+            playerRigidbody.gravityScale = defaultGravityScale;
+            playerAnim.SetBool("isWalking", false);
+        }
+    }
+
+    private void Update()
+    {
+        GetDieInput();
+        GetLeftInput();
+        GetRightInput();
+        GetJumpInput();
+    }
+
+    private void GetDieInput()
+    {
+        if (Input.GetKeyDown(KeyCode.R))
+        {
+            playerMoveStatus.Revive();
+        }
+    }
+
+    private void GetLeftInput()
+    {
+        leftInput = 0;
         if (playerMoveStatus.leftable0)
         {
-            leftMove0 = Input.GetAxis("Left0");
-            if (leftMove0 != 0) playerMoveStatus.leftPressed0 = true;
+            leftInput0 = Input.GetAxis("Left0");
+            if (leftInput0 != 0)
+            {
+                playerMoveStatus.leftPressed0 = true;
+                leftPressed = true;
+                leftInput = leftInput0;
+                towardsRight = false;
+            }
             else playerMoveStatus.leftPressed0 = false;
         }
         if (playerMoveStatus.leftable1)
         {
-            leftMove1 = Input.GetAxis("Left1");
-            if (leftMove1 != 0) playerMoveStatus.leftPressed1 = true;
+            leftInput1 = Input.GetAxis("Left1");
+            if (leftInput1 != 0)
+            {
+                playerMoveStatus.leftPressed1 = true;
+                leftPressed = true;
+                leftInput = Mathf.Max(leftInput, leftInput1);
+                towardsRight = false;
+            }
             else playerMoveStatus.leftPressed1 = false;
         }
-        if (playerMoveStatus.rightPressed0 || playerMoveStatus.rightPressed1 || 
-            playerMoveStatus.leftPressed0 || playerMoveStatus.leftPressed1)
-        {
-            if (playerMoveStatus.rightPressed0 || playerMoveStatus.rightPressed1)
-            {
-                RightMove(Mathf.Max(rightMove0, rightMove1));
-                playerMoveStatus.towardsRight = true;
-            }
-            if (playerMoveStatus.leftPressed0 || playerMoveStatus.leftPressed1)
-            {
-                LeftMove(Mathf.Max(leftMove0, leftMove1));
-                playerMoveStatus.towardsRight = false;
-            }
-            playerAnim.SetBool("isWalking", true);
-        }
-        else playerAnim.SetBool("isWalking", false);
-
-        if (playerAnim.GetBool("isOnGround"))
-        {
-            if (playerMoveStatus.jumpable0)
-            {
-                if (Input.GetButton("Jump0")) playerMoveStatus.jumpPressed0 = true;
-                else playerMoveStatus.jumpPressed0 = false;
-            }
-            if (playerMoveStatus.jumpable1)
-            {
-                if (Input.GetButton("Jump1")) playerMoveStatus.jumpPressed1 = true;
-                else playerMoveStatus.jumpPressed1 = false;
-            }
-            if (playerMoveStatus.jumpable2)
-            {
-                if (Input.GetButton("Jump2")) playerMoveStatus.jumpPressed2 = true;
-                else playerMoveStatus.jumpPressed2 = false;
-            }
-            if (playerMoveStatus.jumpPressed0 || playerMoveStatus.jumpPressed1 || playerMoveStatus.jumpPressed2)
-            {
-                Jump();
-            }
-        }
-        
     }
 
-    private void RightMove(float rightMove)
+    private void GetRightInput()
     {
-        transform.Translate(Vector3.right * speed * rightMove * Time.fixedDeltaTime);
-        //playerRigidbody.velocity = new Vector2(speed * rightMove * Time.fixedDeltaTime, playerRigidbody.velocity.y);
-    }
-
-    private void LeftMove(float leftMove)
-    {
-        transform.Translate(-1f * Vector3.right * speed * leftMove * Time.fixedDeltaTime);
-        //playerRigidbody.velocity = new Vector2(-1f * speed * leftMove * Time.fixedDeltaTime, playerRigidbody.velocity.y);
-    }
-    
-    private void Jump()
-    {
-        playerRigidbody.AddForce(Vector2.up * jumpForce);
-        if (playerMoveStatus.towardsRight)
+        rightInput = 0;
+        if (playerMoveStatus.rightable0)
         {
-            playerAnim.SetBool("isRightJumping", true);
+            rightInput0 = Input.GetAxis("Right0");
+            if (rightInput0 != 0)
+            {
+                playerMoveStatus.rightPressed0 = true;
+                rightPressed = true;
+                rightInput = rightInput0;
+                towardsRight = true;
+            }
+            else playerMoveStatus.rightPressed0 = false;
         }
-        else
+        if (playerMoveStatus.rightable1)
         {
-            playerAnim.SetBool("isLeftJumping", true);
+            rightInput1 = Input.GetAxis("Right1");
+            if (rightInput1 != 0)
+            {
+                playerMoveStatus.rightPressed1 = true;
+                rightPressed = true;
+                rightInput = Mathf.Max(rightInput, rightInput1);
+                towardsRight = true;
+            }
+            else playerMoveStatus.rightPressed1 = false;
         }
     }
 
-    private void OnCollisionEnter2D(Collision2D collision)
+    private void GetJumpInput()
     {
-        print("Enter " + collision.collider.name);
-        playerAnim.SetBool("isRightJumping", false);
-        playerAnim.SetBool("isLeftJumping", false);
-        if (collision.collider.tag == "Ground")
+        if (playerMoveStatus.jumpable0)
         {
-            playerAnim.SetBool("isOnGround", true);
+            if (Input.GetButtonDown("Jump0"))
+            {
+                jumpBufferTimer = jumpBufferTime;
+            }
+            if (Input.GetButton("Jump0"))
+            {
+                jumpPressed = true;
+                playerMoveStatus.jumpPressed0 = true;
+            }
+            else playerMoveStatus.jumpPressed0 = false;
+            if (Input.GetButtonUp("Jump0")) jumpPressedUp = true;
         }
-        if (collision.collider.tag == "LeftWall")
+        if (playerMoveStatus.jumpable1)
         {
-            playerAnim.SetBool("isOnLeftWall", true);
+            if (Input.GetButtonDown("Jump1"))
+            {
+                jumpBufferTimer = jumpBufferTime;
+            }
+            if (Input.GetButton("Jump1"))
+            {
+                jumpPressed = true;
+                playerMoveStatus.jumpPressed1 = true;
+            }
+            else playerMoveStatus.jumpPressed1 = false;
+            if (Input.GetButtonUp("Jump1")) jumpPressedUp = true;
         }
-        if (collision.collider.tag == "RightWall")
+        if (playerMoveStatus.jumpable2)
         {
-            playerAnim.SetBool("isOnRightWall", true);
-        }
-    }
-
-    private void OnCollisionExit2D(Collision2D collision)
-    {
-        print("Exit " + collision.collider.name);
-        if (collision.collider.tag == "Ground")
-        {
-            playerAnim.SetBool("isOnGround", false);
-        }
-        if (collision.collider.tag == "LeftWall")
-        {
-            playerAnim.SetBool("isOnLeftWall", false);
-        }
-        if (collision.collider.tag == "RightWall")
-        {
-            playerAnim.SetBool("isOnRightWall", false);
+            if (Input.GetButtonDown("Jump2"))
+            {
+                jumpBufferTimer = jumpBufferTime;
+            }
+            if (Input.GetButton("Jump2"))
+            {
+                jumpPressed = true;
+                playerMoveStatus.jumpPressed2 = true;
+            }
+            else playerMoveStatus.jumpPressed2 = false;
+            if (Input.GetButtonUp("Jump2")) jumpPressedUp = true;
         }
     }
 }

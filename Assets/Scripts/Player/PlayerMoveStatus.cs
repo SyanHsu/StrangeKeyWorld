@@ -9,8 +9,6 @@ public class PlayerMoveStatus : MonoBehaviour
 {
     public static PlayerMoveStatus Instance;
 
-    public bool towardsRight = true;
-
     public bool rightable0;
     public bool rightPressed0;
     public bool rightable1;
@@ -25,10 +23,6 @@ public class PlayerMoveStatus : MonoBehaviour
     public bool jumpPressed1;
     public bool jumpable2;
     public bool jumpPressed2;
-    public bool fireable;
-    public bool firePressed;
-    public bool downPressed;
-    public bool sPressed;
 
     private void Awake()
     {
@@ -52,9 +46,17 @@ public class PlayerMoveStatus : MonoBehaviour
         jumpPressed1 = false;
         jumpable2 = false;
         jumpPressed2 = false;
-        fireable = false;
-        firePressed = false;
-        downPressed = false;
-        sPressed = false;
+    }
+
+    public void Revive()
+    {
+        GetComponentInChildren<Animator>().Play("Die");
+        GetComponentInChildren<Animator>().SetBool("isDead", false);
+        Invoke("ChangePosition", 0.5f);
+    }
+
+    private void ChangePosition()
+    {
+        transform.position = new Vector3(0, -2.45f, 0);
     }
 }

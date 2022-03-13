@@ -12,6 +12,7 @@ public class LeftButtonController : ButtonController
     private void Update()
     {
         if (!buttonRenderer.isVisible) return;
+        playerMoveStatus.leftable0 = true;
         if (playerMoveStatus.leftPressed0)
         {
             PressButton();
@@ -20,10 +21,5 @@ public class LeftButtonController : ButtonController
         {
             UnpressButton();
         }
-    }
-
-    private void OnBecameVisible()
-    {
-        playerMoveStatus.leftable0 = true;
     }
 }

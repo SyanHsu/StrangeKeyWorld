@@ -12,6 +12,7 @@ public class UpButtonController : ButtonController
     private void Update()
     {
         if (!buttonRenderer.isVisible) return;
+        playerMoveStatus.jumpable0 = true;
         if (playerMoveStatus.jumpPressed0)
         {
             PressButton();
@@ -20,9 +21,5 @@ public class UpButtonController : ButtonController
         {
             UnpressButton();
         }
-    }
-    private void OnBecameVisible()
-    {
-        playerMoveStatus.jumpable0 = true;
     }
 }

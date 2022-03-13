@@ -12,7 +12,7 @@ public class DownButtonController : ButtonController
     private void Update()
     {
         if (!buttonRenderer.isVisible) return;
-        if (playerMoveStatus.downPressed)
+        if (Input.GetKey(KeyCode.DownArrow))
         {
             PressButton();
         }

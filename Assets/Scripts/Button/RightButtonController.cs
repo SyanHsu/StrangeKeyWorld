@@ -12,6 +12,7 @@ public class RightButtonController : ButtonController
     private void Update()
     {
         if (!buttonRenderer.isVisible) return;
+        playerMoveStatus.rightable0 = true;
         if (playerMoveStatus.rightPressed0)
         {
             PressButton();
@@ -20,10 +21,5 @@ public class RightButtonController : ButtonController
         {
             UnpressButton();
         }
-    }
-
-    private void OnBecameVisible()
-    {
-        playerMoveStatus.rightable0 = true;
     }
 }
